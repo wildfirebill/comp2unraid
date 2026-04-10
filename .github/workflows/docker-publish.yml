@@ -12,7 +12,6 @@ on:
       - release
       - "release/**"
     paths-ignore:
-      - '.github/workflows/**'
       - 'docs/**'
       - 'README.md'
 
