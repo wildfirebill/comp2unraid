@@ -8,8 +8,6 @@ ARG IMAGE_NAME
 ENV GIT_COMMIT=$GIT_COMMIT
 
 
-RUN echo "I am running on $BUILDPLATFORM, building for $TARGETPLATFORM"
-RUN echo "This is commit:$GIT_COMMIT for ${IMAGE_NAME}/$GIT_BRANCH"
 # Set the working directory to /app
 WORKDIR /app
 
@@ -28,6 +26,9 @@ RUN go build  -ldflags "-X main.Commit=${GIT_COMMIT} -X main.Branch=${GIT_BRANCH
 
 RUN chmod +x ./entrypoint.sh
 
+# Create non-root user and set ownership of /app
+RUN adduser -D -g '' app && chown -R app:app /app
+USER app
 
 ENTRYPOINT [ "/app/entrypoint.sh" ]
 

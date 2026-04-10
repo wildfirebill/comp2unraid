@@ -68,12 +68,23 @@ func (c *commandLineOptions) getLocalPath() (string, error) {
 	var file *os.File
 	var err error
 
+	// Convert GitHub blob URLs to raw URLs so the user doesn't
+	// accidentally download an HTML page instead of the raw YAML.
+	if strings.HasPrefix(url, "https://github.com/") && strings.Contains(url, "/blob/") {
+		url = strings.Replace(url, "https://github.com/", "https://raw.githubusercontent.com/", 1)
+		url = strings.Replace(url, "/blob/", "/", 1)
+	}
+
 	if strings.HasPrefix(url, "https://") {
 		resp, err := http.Get(url)
 		if err != nil {
 			return "", err
 		}
 		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return "", fmt.Errorf("failed to download %s: HTTP %d", url, resp.StatusCode)
+		}
 
 		file, err = os.CreateTemp("", "comp2unraid-")
 		if err != nil {
@@ -225,11 +236,15 @@ func parseYaml(args commandLineOptions) (*types.Project, error) {
 	if err != nil {
 		return nil, err
 	}
+	opts := []cli.ProjectOptionsFn{
+		cli.WithName("comp2unraid"),
+	}
+	if args.useEnv {
+		opts = append(opts, cli.WithOsEnv, cli.WithDotEnv)
+	}
 	projOptions, err := cli.NewProjectOptions(
 		[]string{localPath},
-		cli.WithOsEnv,
-		cli.WithDotEnv,
-		cli.WithName("comp2unraid"))
+		opts...)
 
 	if err != nil {
 		return nil, err
@@ -333,20 +348,24 @@ func getEnvironmentConfigs(service *types.ServiceConfig) []Config {
 	//Type="Variable" Display="always" Required="true" Mask="true">lcuhiYvP8zyhlaC4+pmp</Config>
 	configs := make([]Config, 0)
 	for key, val := range service.Environment {
+		defaultVal := ""
+		if val != nil {
+			defaultVal = *val
+		}
 		needsMask := strings.Contains(strings.ToUpper(key), "PWD") ||
 			strings.Contains(strings.ToUpper(key), "PASS") ||
 			strings.Contains(strings.ToUpper(key), "SECRET")
 		configs = append(configs, Config{
 			Name:        key,
 			Target:      key,
-			Default:     *val,
+			Default:     defaultVal,
 			Mode:        "",
 			Description: "Specify the value for env: " + key,
 			Type:        "Variable",
 			Display:     "always",
 			Required:    true,
 			Mask:        needsMask,
-			Value:       *val,
+			Value:       defaultVal,
 		})
 	}
 	return configs
