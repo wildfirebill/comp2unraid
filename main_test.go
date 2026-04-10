@@ -240,21 +240,21 @@ func TestGetVolumeConfigs(t *testing.T) {
 func TestGetDeviceConfigs(t *testing.T) {
 	tests := []struct {
 		name         string
-		devices      []string
+		devices      []composetypes.DeviceMapping
 		wantCount    int
 		wantName0    string
 		wantDefault0 string
 	}{
 		{
 			name:         "host:container mapping",
-			devices:      []string{"/dev/dri:/dev/dri"},
+			devices:      []composetypes.DeviceMapping{{Source: "/dev/dri", Target: "/dev/dri"}},
 			wantCount:    1,
 			wantName0:    "Device passthrough /dev/dri",
 			wantDefault0: "/dev/dri:/dev/dri",
 		},
 		{
-			name:         "device without colon",
-			devices:      []string{"/dev/sda"},
+			name:         "device without target",
+			devices:      []composetypes.DeviceMapping{{Source: "/dev/sda"}},
 			wantCount:    1,
 			wantName0:    "Device passthrough /dev/sda",
 			wantDefault0: "/dev/sda",
@@ -422,6 +422,123 @@ func TestXMLMarshal(t *testing.T) {
 	}
 	if len(decoded.Configs) != 2 {
 		t.Errorf("round-trip Configs count = %d, want 2", len(decoded.Configs))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// End-to-end: parse example compose, build templates, validate XML
+// ---------------------------------------------------------------------------
+
+func TestEndToEnd_ExampleCompose(t *testing.T) {
+	args := commandLineOptions{
+		configFile: "examples/compose/docker-compose.yml",
+	}
+	args.SetRepository("Ogglord/comp2unraid")
+
+	project, err := parseYaml(args)
+	if err != nil {
+		t.Fatalf("parseYaml() error: %v", err)
+	}
+
+	if len(project.Services) < 2 {
+		t.Fatalf("expected at least 2 services, got %d", len(project.Services))
+	}
+
+	for _, service := range project.Services {
+		registry, err := getRegistryURL(service.Image)
+		if err != nil {
+			t.Fatalf("getRegistryURL(%q) error: %v", service.Image, err)
+		}
+
+		template := UnraidTemplate{
+			Version:    "2",
+			Name:       service.Name,
+			Category:   "Other:",
+			Repository: service.Image,
+			Registry:   registry,
+			Network:    getNetworkMode(&service),
+			WebUI:      getWebUI(&service),
+			Shell:      "bash",
+			Author:     args.Author,
+		}
+
+		template.Configs = append(template.Configs, getConfigs(&service)...)
+		template.Configs = append(template.Configs, getEnvironmentConfigs(&service)...)
+		template.Configs = append(template.Configs, getVolumeConfigs(&service)...)
+		template.Configs = append(template.Configs, getDeviceConfigs(&service)...)
+
+		// Marshal to XML
+		xmlBytes, err := xml.MarshalIndent(template, "", "  ")
+		if err != nil {
+			t.Fatalf("service %q: xml.MarshalIndent() error: %v", service.Name, err)
+		}
+
+		xmlStr := string(xmlBytes)
+
+		// Validate it's valid XML by unmarshaling back
+		var decoded UnraidTemplate
+		if err := xml.Unmarshal(xmlBytes, &decoded); err != nil {
+			t.Fatalf("service %q: generated XML is invalid: %v\n%s", service.Name, err, xmlStr)
+		}
+
+		// Verify key fields survived the round-trip
+		if decoded.Name != service.Name {
+			t.Errorf("service %q: Name round-trip = %q", service.Name, decoded.Name)
+		}
+		if decoded.Repository != service.Image {
+			t.Errorf("service %q: Repository round-trip = %q, want %q", service.Name, decoded.Repository, service.Image)
+		}
+		if decoded.Version != "2" {
+			t.Errorf("service %q: Version = %q, want 2", service.Name, decoded.Version)
+		}
+
+		// Validate service-specific expectations
+		switch service.Name {
+		case "immich-server":
+			if decoded.Network != "bridge" {
+				t.Errorf("immich-server: Network = %q, want bridge", decoded.Network)
+			}
+			if decoded.WebUI == "" {
+				t.Error("immich-server: expected WebUI to be set (has ports)")
+			}
+			// Should have: 1 port + 18 env vars + 2 volumes + 1 device = 22 configs
+			if len(decoded.Configs) == 0 {
+				t.Error("immich-server: expected configs, got 0")
+			}
+			// Check that DB_PASSWORD is masked
+			for _, c := range decoded.Configs {
+				if c.Name == "DB_PASSWORD" && !c.Mask {
+					t.Error("immich-server: DB_PASSWORD should have Mask=true")
+				}
+			}
+			// Check device passthrough exists
+			hasDevice := false
+			for _, c := range decoded.Configs {
+				if c.Type == "Device" {
+					hasDevice = true
+					break
+				}
+			}
+			if !hasDevice {
+				t.Error("immich-server: expected at least one Device config")
+			}
+
+		case "immich-machine-learning":
+			if decoded.WebUI != "" {
+				t.Errorf("immich-machine-learning: expected empty WebUI (no ports), got %q", decoded.WebUI)
+			}
+			// Should have volume configs for model-cache
+			hasVolume := false
+			for _, c := range decoded.Configs {
+				if c.Type == "Path" {
+					hasVolume = true
+					break
+				}
+			}
+			if !hasVolume {
+				t.Error("immich-machine-learning: expected at least one Path config")
+			}
+		}
 	}
 }
 

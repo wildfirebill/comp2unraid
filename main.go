@@ -400,14 +400,14 @@ func getVolumeConfigs(service *types.ServiceConfig) []Config {
 func getDeviceConfigs(service *types.ServiceConfig) []Config {
 	configs := make([]Config, 0)
 	for _, device := range service.Devices {
-		deviceNameHost := device
-		if strings.Contains(device, ":") {
-			deviceNameHost = strings.Split(device, ":")[0]
+		deviceDefault := device.Source
+		if device.Target != "" {
+			deviceDefault = device.Source + ":" + device.Target
 		}
 		configs = append(configs, Config{
-			Name:        fmt.Sprintf("Device passthrough %s", deviceNameHost),
+			Name:        fmt.Sprintf("Device passthrough %s", device.Source),
 			Target:      "",
-			Default:     device,
+			Default:     deviceDefault,
 			Mode:        "",
 			Description: "",
 			Type:        "Device",
