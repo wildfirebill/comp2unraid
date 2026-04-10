@@ -68,6 +68,20 @@ func (c *commandLineOptions) getLocalPath() (string, error) {
 	var file *os.File
 	var err error
 
+	// Read from stdin when "-" is passed as the config file
+	if url == "-" {
+		file, err = os.CreateTemp("", "comp2unraid-")
+		if err != nil {
+			return "", err
+		}
+		tempFiles = append(tempFiles, file.Name())
+		_, err = io.Copy(file, os.Stdin)
+		if err != nil {
+			return "", err
+		}
+		return file.Name(), nil
+	}
+
 	// Convert GitHub blob URLs to raw URLs so the user doesn't
 	// accidentally download an HTML page instead of the raw YAML.
 	if strings.HasPrefix(url, "https://github.com/") && strings.Contains(url, "/blob/") {

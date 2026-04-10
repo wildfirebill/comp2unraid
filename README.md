@@ -1,43 +1,52 @@
 [![Docker](https://github.com/Ogglord/comp2unraid/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/Ogglord/comp2unraid/actions/workflows/docker-publish.yml) [![Go](https://github.com/Ogglord/comp2unraid/actions/workflows/go.yml/badge.svg)](https://github.com/Ogglord/comp2unraid/actions/workflows/go.yml)
 
 # comp2unraid
-Convert docker compose templates to unraid template
 
+Convert Docker Compose files to Unraid container templates (XML).
 
-## Usage
+## Quick start
 
- - Have your docker-compose.yml ready, as an URL _https://...docker-compose.yml_ or a local file on your server
- - SSH to your Unraid server or open a shell terminal in your browser
- - Execute it without installing using docker run, download the binary or compile from source, whatever you prefer.
+### From a URL
 
-
-### Run using docker
-
-Preview the xml first, using the -n (dry run) flag
 ```bash
-docker run ghcr.io/ogglord/comp2unraid -n "https://raw.githubusercontent.com/user/r/docker-compose.yml"
+docker run ghcr.io/ogglord/comp2unraid -n \
+  "https://raw.githubusercontent.com/Ogglord/comp2unraid/main/examples/compose/docker-compose.yml"
 ```
-Then; pipe the output to an xml file
+
+### From a local file (piped via stdin)
+
 ```bash
-docker run ghcr.io/ogglord/comp2unraid -n "https://raw.githubusercontent.com/user/r/docker-compose.yml" > /boot/config/plugins/dockerMan/templates-user/my-template.xml
+cat docker-compose.yml | docker run -i ghcr.io/ogglord/comp2unraid -n -
 ```
-Note: if your docker-compose contains multiple services, you will have to split the xml manually, or run the binary, see below, which generates one xml file per service
 
+Both examples use `-n` (dry run) to preview the XML on stdout. Remove `-n` to write XML files to disk (one per service).
 
-### Download binary
+## Flags
 
- - Download the latest release from Github
- - ```./comp2unraid "https://raw.githubusercontent.com/user/r/docker-compose.yml"```
+| Flag | Description |
+|------|-------------|
+| `-n` | Dry run — output XML to stdout |
+| `-f` | Overwrite existing XML files |
+| `-e` | Include host environment variables and `.env` file |
+| `-v` | Verbose output |
 
-### Compile from source
+## Installing templates on Unraid
 
- - Install go v1.23.1
- - Clone this repo
- - Compile binaries using ```make``` this will cross-compile to ./bin folder by default
- - ```./comp2unraid "https://raw.githubusercontent.com/user/r/docker-compose.yml"```
+Unraid picks up user templates from `/boot/config/plugins/dockerMan/templates-user/`. Save your generated XML files there and they will appear in the Unraid Docker UI under **Add Container > Template**.
 
- You may also build the docker image locally using ```make docker``` and run using ```docker run local/comp2unraid```
+```bash
+docker run ghcr.io/ogglord/comp2unraid -n \
+  "https://raw.githubusercontent.com/Ogglord/comp2unraid/main/examples/compose/docker-compose.yml" \
+  > /boot/config/plugins/dockerMan/templates-user/my-template.xml
+```
 
+Note: If your compose file has multiple services, run without `-n` to generate one XML file per service, then copy them into the templates directory.
 
+## Build from source
 
-
+```bash
+git clone https://github.com/Ogglord/comp2unraid.git
+cd comp2unraid
+make
+./bin/comp2unraid_linux_amd64 -n examples/compose/docker-compose.yml
+```
