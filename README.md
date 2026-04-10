@@ -19,7 +19,7 @@ docker run ghcr.io/ogglord/comp2unraid -n "https://raw.githubusercontent.com/use
 ```
 Then; pipe the output to an xml file
 ```bash
-docker run ghcr.io/ogglord/comp2unraid -n "https://raw.githubusercontent.com/user/r/docker-compose.yml" > my-template.xml
+docker run ghcr.io/ogglord/comp2unraid -n "https://raw.githubusercontent.com/user/r/docker-compose.yml" > /boot/config/plugins/dockerMan/templates-user/my-template.xml
 ```
 Note: if your docker-compose contains multiple services, you will have to split the xml manually, or run the binary, see below, which generates one xml file per service
 
