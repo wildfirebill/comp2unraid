@@ -26,7 +26,7 @@ func init() {
 	flag.BoolVar(&cliOptions.force, "f", false, "overwrite existing XML files")
 	flag.BoolVar(&cliOptions.verbose, "v", false, "verbose output")
 	flag.BoolVar(&cliOptions.useEnv, "e", false, "use current environment variables and .env file if available")
-	flag.BoolVar(&cliOptions.dryRun, "n", false, "dry run - outputs xml to stdout without creating files")
+	flag.BoolVar(&cliOptions.writeFiles, "w", false, "write XML files to disk (one per service)")
 
 	// modify the default usage message
 	flag.Usage = func() {
@@ -168,7 +168,7 @@ func convertCommand(args commandLineOptions) {
 		log.Fatalf("error parsing YAML: %v", err)
 	}
 
-	if !args.dryRun && !args.force {
+	if args.writeFiles && !args.force {
 		// Check if any of the XML files that will be created exist
 		existingFiles := make(map[string]bool)
 		for _, service := range project.Services {
@@ -225,15 +225,15 @@ func convertCommand(args commandLineOptions) {
 		template.Configs = append(template.Configs, getVolumeConfigs(&service)...)
 		template.Configs = append(template.Configs, getDeviceConfigs(&service)...)
 
-		if args.dryRun {
-			err = template.writeTemplateToStdout()
-			if err != nil {
-				log.Fatalf("error printing XML: %v", err)
-			}
-		} else {
+		if args.writeFiles {
 			err = template.writeTemplateToDisk(fmt.Sprintf("%s.xml", service.Name))
 			if err != nil {
 				log.Fatalf("error writing XML to file: %v", err)
+			}
+		} else {
+			err = template.writeTemplateToStdout()
+			if err != nil {
+				log.Fatalf("error printing XML: %v", err)
 			}
 		}
 	}
@@ -294,7 +294,7 @@ func (template UnraidTemplate) writeTemplateToDisk(filename string) error {
 		return fmt.Errorf("error writing XML to file: %v", err)
 	}
 
-	fmt.Printf("XML file created: %s.xml\n", filename)
+	fmt.Printf("XML file created: %s\n", filename)
 	return nil
 }
 

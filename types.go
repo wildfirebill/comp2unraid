@@ -40,7 +40,7 @@ type commandLineOptions struct {
 	verbose            bool
 	force              bool
 	useEnv             bool
-	dryRun             bool
+	writeFiles             bool
 	configFile         string
 	namedService       string
 	templateRepository string

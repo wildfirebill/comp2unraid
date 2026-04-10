@@ -26,11 +26,12 @@ RUN go build  -ldflags "-X main.Commit=${GIT_COMMIT} -X main.Branch=${GIT_BRANCH
 
 RUN chmod +x ./entrypoint.sh
 
-# Create non-root user and set ownership of /app
-RUN adduser -D -g '' app && chown -R app:app /app
+# Create non-root user, output directory, and set ownership
+RUN adduser -D -g '' app && mkdir /output && chown -R app:app /app /output
 USER app
+WORKDIR /output
 
 ENTRYPOINT [ "/app/entrypoint.sh" ]
 
 # Run the command to start the application
-CMD ["-h"]
+CMD ["--help"]
