@@ -67,6 +67,7 @@ Rationale: workflow execution baseline is aligned with Node.js 24 requirement; N
 - `actions/checkout` → `v6.0.2`
 - `actions/setup-go` → `v6.4.0`
 - `actions/setup-node` → `v6.3.0`
+- Go version aligned with `go.mod`: `go-version` updated from `1.23.1` to `1.24`
 
 ### `.github/workflows/docker-publish.yml`
 - `actions/checkout` → `v6.0.2`
